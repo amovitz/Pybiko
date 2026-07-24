@@ -1,7 +1,12 @@
 #! /usr/bin/python3
 
-from .PybikoIO import PybikoIO
-from .PybikoSerial import PybikoSerial
+try:
+    from .PybikoIO import PybikoIO
+    from .PybikoSerial import PybikoSerial
+except ImportError:
+    from PybikoIO import PybikoIO
+    from PybikoSerial import PybikoSerial
+
 from time import sleep
 import subprocess
 
