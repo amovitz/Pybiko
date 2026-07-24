@@ -9,6 +9,7 @@ import serial
 import enum
 from functools import reduce
 from typing import Optional, Tuple
+from time import sleep
 
 
 class CommandType(enum.IntEnum):
@@ -27,7 +28,7 @@ class ChecksumError(Exception):
 
 
 class PybikoSerial:
-    def __init__(self, port: str = "/dev/ttyS0", baud: int = 9600, timeout: float = 1.0):
+    def __init__(self, port: str = "/dev/ttyS0", baud: int = 115200, timeout: float = 1.0):
         self.serial = serial.Serial(port, baud, bytesize=8, parity="N",
                                      stopbits=1, timeout=timeout)
 
@@ -80,12 +81,14 @@ class PybikoSerial:
 
     def clear(self):
         self.send_command(CommandType.CMD_CLEAR)
+        sleep(0.1)
 
     def set_cursor(self, row: int, col: int):
         self.send_command(CommandType.CMD_SET_CURSOR, bytes([row, col]))
 
     def write_text(self, text: str):
         self.send_command(CommandType.CMD_WRITE_TEXT, text.encode("ascii"))
+        sleep(len(text)/100)
 
     def put_char(self, row: int, col: int, char: str):
         self.send_command(CommandType.CMD_PUT_CHAR, bytes([row, col, ord(char)]))
@@ -113,11 +116,15 @@ class PybikoSerial:
 if __name__ == "__main__":
     # basic smoke test
     with PybikoSerial(port="/dev/ttyUSB0", baud=9600) as cyb:
+        retries = 10
         print("pinging...")
         if cyb.ping():
             print("alive!")
         else:
             print("no response - check wiring/baud")
+            retries -= 1
+            if retries <= 0:
+                raise IOError("Failed to connect to Cybiko")
 
         cyb.clear()
         cyb.set_cursor(2, 3)
