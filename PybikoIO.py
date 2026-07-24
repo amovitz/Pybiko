@@ -13,8 +13,8 @@ class PybikoIO():
         self.RESET_PIN = 17
         try:
             import gpiozero
-            self.RESET_GPIO = gpiozero.OutputDevice(self.RESET_PIN)
-        except:
+            self.RESET_GPIO = gpiozero.OutputDevice(self.RESET_PIN, active_high=False, initial_value=False)
+        except ImportError:
             self.RESET_GPIO = MockIO()
 
     def reset(self):
