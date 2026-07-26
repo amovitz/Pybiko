@@ -9,18 +9,26 @@ import serial
 import enum
 from functools import reduce
 from typing import Optional, Tuple
-from time import sleep
+from time import sleep, time
 
 
 class CommandType(enum.IntEnum):
+    # N/ACK
+    EVT_ACK         = 0x00  # Bi-Drirectional, no payload
+    EVT_NACK        = 0xFF  # Bi-Drirectional, no payload
+
+    # Screen commands
     CMD_CLEAR       = 0x01  # Pi -> Cybiko, no payload
     CMD_SET_CURSOR  = 0x02  # Pi -> Cybiko, payload: row, col
     CMD_WRITE_TEXT  = 0x03  # Pi -> Cybiko, payload: ASCII bytes
     CMD_PUT_CHAR    = 0x04  # Pi -> Cybiko, payload: row, col, char
-    CMD_PING        = 0x05  # Pi -> Cybiko, no payload
 
+    # Ping/Pong
+    CMD_PING        = 0x05  # Pi -> Cybiko, no payload
+    EVT_PONG        = 0xAA  # Cybiko -> Pi, no payload
+
+    # Keyboard
     EVT_KEY         = 0x81  # Cybiko -> Pi, payload: keycode, state (1=down, 0=up)
-    EVT_PONG        = 0x82  # Cybiko -> Pi, no payload
 
 
 class ChecksumError(Exception):
@@ -51,6 +59,8 @@ class PybikoSerial:
         checksum = self._checksum(command, data)
         frame = bytes([command, len(data)]) + data + bytes([checksum])
         self.serial.write(frame)
+        print('>', hex(command), data.hex(), hex(checksum))
+
 
     def read_frame(self) -> Optional[Tuple[int, bytes]]:
         """Blocks up to `timeout` waiting for one full, checksum-valid frame.
@@ -61,12 +71,15 @@ class PybikoSerial:
         if len(header) < 2:
             return None  # timed out waiting for a frame to start
         cmd_type, length = header[0], header[1]
+        print('<', hex(cmd_type), end=' ')
 
         payload = self.serial.read(length)
+        print(payload.hex(), end=' ')
         if len(payload) < length:
             return None  # timed out mid-frame
 
         checksum_byte = self.serial.read(1)
+        print(hex(checksum_byte[0]))
         if len(checksum_byte) < 1:
             return None
 
@@ -77,18 +90,30 @@ class PybikoSerial:
             )
         return cmd_type, payload
 
+    def wait_for_response(self, command: CommandType = CommandType.EVT_ACK, timeout: float = 1.0):
+        START = time()
+        while time() < START + timeout:
+            frame = self.read_frame()
+            if frame is not None and frame[0] == command:
+                return True
+        return False
+
     # --- convenience wrappers for the Pi->Cybiko commands ---
 
-    def clear(self):
+    def clear(self, wait_for_ack: bool = True):
         self.send_command(CommandType.CMD_CLEAR)
-        sleep(0.1)
+        if not wait_for_ack:
+            return True
+        return self.wait_for_response()
 
     def set_cursor(self, row: int, col: int):
         self.send_command(CommandType.CMD_SET_CURSOR, bytes([row, col]))
 
-    def write_text(self, text: str):
+    def write_text(self, text: str, wait_for_ack: bool = True):
         self.send_command(CommandType.CMD_WRITE_TEXT, text.encode("ascii"))
-        sleep(len(text)/100)
+        if not wait_for_ack:
+            return True
+        return self.wait_for_response()
 
     def put_char(self, row: int, col: int, char: str):
         self.send_command(CommandType.CMD_PUT_CHAR, bytes([row, col, ord(char)]))
@@ -97,8 +122,7 @@ class PybikoSerial:
         self.send_command(CommandType.CMD_PING)
         if not wait_for_pong:
             return True
-        frame = self.read_frame()
-        return frame is not None and frame[0] == CommandType.EVT_PONG
+        return self.wait_for_response(CommandType.EVT_PONG)
 
     def poll_key(self) -> Optional[Tuple[int, bool]]:
         """Non-blocking-ish (respects `timeout`) check for a key event.
@@ -115,7 +139,7 @@ class PybikoSerial:
 
 if __name__ == "__main__":
     # basic smoke test
-    with PybikoSerial(port="/dev/ttyUSB0", baud=9600) as cyb:
+    with PybikoSerial() as cyb:
         retries = 10
         print("pinging...")
         if cyb.ping():
