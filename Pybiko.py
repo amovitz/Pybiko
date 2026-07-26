@@ -51,7 +51,7 @@ class Pybiko:
 
             pserial.clear()
             pserial.set_cursor(5, 2)
-            pserial.write_text("HELLO CYBIKO - LOVE PI")
+            pserial.write_text("Hello Cybiko! Love, Pi")
         except Exception as e:
             print(e)
 

@@ -151,8 +151,8 @@ if __name__ == "__main__":
                 raise IOError("Failed to connect to Cybiko")
 
         cyb.clear()
-        cyb.set_cursor(2, 3)
-        cyb.write_text("HELLO CYBIKO - LOVE PI")
+        cyb.set_cursor(5, 2)
+        cyb.write_text("Hello Cybiko! Love, Pi")
 
         print("listening for key events (Ctrl+C to stop)...")
         try:
