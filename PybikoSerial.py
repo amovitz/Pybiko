@@ -115,8 +115,11 @@ class PybikoSerial:
             return True
         return self.wait_for_response()
 
-    def set_cursor(self, row: int, col: int):
+    def set_cursor(self, row: int, col: int, wait_for_ack: bool = True):
         self.send_command(CommandType.CMD_SET_CURSOR, bytes([row, col]))
+        if not wait_for_ack:
+            return True
+        return self.wait_for_response()
 
     def write_text(self, text: str, wait_for_ack: bool = True):
         self.send_command(CommandType.CMD_WRITE_TEXT, text.encode("ascii"))
