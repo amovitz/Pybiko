@@ -17,19 +17,23 @@ class CommandType(enum.IntEnum):
     EVT_ACK         = 0x00  # Bi-Drirectional, no payload
     EVT_NACK        = 0xFF  # Bi-Drirectional, no payload
 
-    # Screen commands
-    CMD_CLEAR       = 0x01  # Pi -> Cybiko, no payload
-    CMD_SET_CURSOR  = 0x02  # Pi -> Cybiko, payload: row, col
-    CMD_WRITE_TEXT  = 0x03  # Pi -> Cybiko, payload: ASCII bytes
-    CMD_PUT_CHAR    = 0x04  # Pi -> Cybiko, payload: row, col, char
-
     # Ping/Pong
-    CMD_PING        = 0x05  # Pi -> Cybiko, no payload
-    EVT_PONG        = 0xAA  # Cybiko -> Pi, no payload
+    CMD_PING        = 0xC0  # Pi -> Cybiko, no payload
+    EVT_PONG        = 0xE0  # Cybiko -> Pi, no payload
+
+    # Screen commands
+    CMD_CLEAR       = 0xC1  # Pi -> Cybiko, no payload
+    CMD_SET_CURSOR  = 0xC2  # Pi -> Cybiko, payload: row, col
+    CMD_WRITE_TEXT  = 0xC3  # Pi -> Cybiko, payload: ASCII bytes
+    CMD_PUT_CHAR    = 0xC4  # Pi -> Cybiko, payload: row, col, char
 
     # Keyboard
-    EVT_KEY         = 0x81  # Cybiko -> Pi, payload: keycode, state (1=down, 0=up)
+    CMD_DUMP_KEYS   = 0xC6  # Pi -> Cybiko, no payload -- request a raw keyboard scan
+    EVT_KEY         = 0xE1  # Cybiko -> Pi, payload: keycode, state (1=down,0=up)
+    EVT_KEY_RAW     = 0xE2  # Cybiko -> Pi, payload: 10x uint16 LE (low byte=rows0-7, high byte=rows8-15), one pair per column in scan order
 
+
+FRAME_SYNC = 0xAA
 
 class ChecksumError(Exception):
     pass
@@ -58,8 +62,9 @@ class PybikoSerial:
             raise ValueError("payload too long for 1-byte length field")
         checksum = self._checksum(command, data)
         frame = bytes([command, len(data)]) + data + bytes([checksum])
+        self.serial.write(bytes([FRAME_SYNC]))
         self.serial.write(frame)
-        print('>', hex(command), data.hex(), hex(checksum))
+        print('>', hex(command), hex(len(data)), data.hex(), hex(checksum))
 
 
     def read_frame(self) -> Optional[Tuple[int, bytes]]:
@@ -67,11 +72,14 @@ class PybikoSerial:
         Returns (type, payload) or None on timeout. Raises ChecksumError on
         a bad checksum rather than silently resyncing, since on the host
         side you usually want to know a frame was corrupted."""
+        sync = self.serial.read(1)
+        if len(sync) < 1 or sync[0] != FRAME_SYNC:
+            return None # out of sync
         header = self.serial.read(2)
         if len(header) < 2:
             return None  # timed out waiting for a frame to start
         cmd_type, length = header[0], header[1]
-        print('<', hex(cmd_type), end=' ')
+        print('<', hex(cmd_type), hex(length), end=' ')
 
         payload = self.serial.read(length)
         print(payload.hex(), end=' ')
@@ -85,9 +93,10 @@ class PybikoSerial:
 
         expected = self._checksum(cmd_type, payload)
         if checksum_byte[0] != expected:
-            raise ChecksumError(
+            print (
                 f"bad checksum: got {checksum_byte[0]:#x}, expected {expected:#x}"
             )
+            return None
         return cmd_type, payload
 
     def wait_for_response(self, command: CommandType = CommandType.EVT_ACK, timeout: float = 1.0):
@@ -115,8 +124,11 @@ class PybikoSerial:
             return True
         return self.wait_for_response()
 
-    def put_char(self, row: int, col: int, char: str):
+    def put_char(self, row: int, col: int, char: str, wait_for_ack: bool = True):
         self.send_command(CommandType.CMD_PUT_CHAR, bytes([row, col, ord(char)]))
+        if not wait_for_ack:
+            return True
+        return self.wait_for_response()
 
     def ping(self, wait_for_pong: bool = True) -> bool:
         self.send_command(CommandType.CMD_PING)
