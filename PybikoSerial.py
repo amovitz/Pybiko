@@ -30,7 +30,7 @@ class CommandType(enum.IntEnum):
     # Keyboard
     CMD_DUMP_KEYS   = 0xC6  # Pi -> Cybiko, no payload -- request a raw keyboard scan
     EVT_KEY         = 0xE1  # Cybiko -> Pi, payload: keycode, state (1=down,0=up)
-    EVT_KEY_RAW     = 0xE2  # Cybiko -> Pi, payload: 10x uint16 LE (low byte=rows0-7, high byte=rows8-15), one pair per column in scan order
+    EVT_DEBUG       = 0xDB  # Cybiko -> Pi, payload: 10x uint16 LE (low byte=rows0-7, high byte=rows8-15), one pair per column in scan order
 
 
 FRAME_SYNC = 0xAA
