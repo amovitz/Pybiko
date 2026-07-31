@@ -40,7 +40,7 @@ class ChecksumError(Exception):
 
 
 class PybikoSerial:
-    def __init__(self, port: str = "/dev/ttyS0", baud: int = 115200, timeout: float = 1.0):
+    def __init__(self, port: str = "/dev/ttyS0", baud: int = 115200, timeout: float = 0.5):
         self.serial = serial.Serial(port, baud, bytesize=8, parity="N",
                                      stopbits=1, timeout=timeout)
 
@@ -99,7 +99,7 @@ class PybikoSerial:
             return None
         return cmd_type, payload
 
-    def wait_for_response(self, command: CommandType = CommandType.EVT_ACK, timeout: float = 1.0):
+    def wait_for_response(self, command: CommandType = CommandType.EVT_ACK, timeout: float = 0.5):
         START = time()
         while time() < START + timeout:
             frame = self.read_frame()
