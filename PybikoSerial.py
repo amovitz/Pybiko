@@ -122,10 +122,24 @@ class PybikoSerial:
         return self.wait_for_response()
 
     def write_text(self, text: str, wait_for_ack: bool = True):
-        self.send_command(CommandType.CMD_WRITE_TEXT, text.encode("ascii"))
-        if not wait_for_ack:
+        chunk_size = 6
+        chunks = 0
+        good_chunks = 0
+        for c in [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]:
+            if not wait_for_ack:
+                self.send_command(CommandType.CMD_WRITE_TEXT, c.encode("ascii"))
+                chunks += 1
+                good_chunks += 1
+                continue
+            for _ in range(3):
+                self.send_command(CommandType.CMD_WRITE_TEXT, c.encode("ascii"))
+                chunks += 1
+                if self.wait_for_response():
+                    good_chunks += 1
+                    break
+        if chunks == good_chunks:
             return True
-        return self.wait_for_response()
+        return False
 
     def put_char(self, row: int, col: int, char: str, wait_for_ack: bool = True):
         self.send_command(CommandType.CMD_PUT_CHAR, bytes([row, col, ord(char)]))
