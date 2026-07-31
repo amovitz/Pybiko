@@ -11,6 +11,8 @@ from time import sleep
 import subprocess
 import threading
 import queue
+import os
+import pty
 
 SRC_DIR = "/home/pi/src/"
 USB_PATH = SRC_DIR + "CybikoStuff/tools/build/usbcon"
@@ -58,31 +60,32 @@ class Pybiko:
 
     def loop(self):
         try:
+            master_fd, slave_fd = pty.openpty()
+
             terminal = subprocess.Popen(
-                ["/bin/sh"],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,  # merge stderr into stdout, simpler to pipe
-                text=True,
-                bufsize=0,
+                ["/bin/sh", "-i"],
+                stdin=slave_fd,
+                stdout=slave_fd,
+                stderr=slave_fd,
+                preexec_fn=os.setsid,  # new session, slave becomes its controlling tty
             )
+            os.close(slave_fd)  # parent doesn't need this end anymore
 
             out_q = queue.Queue()
 
             def reader():
                 while True:
-                    chunk = terminal.stdout.read(1)
-                    if chunk == "":
-                        chunk = terminal.stderr.read(1)
-                        if chunk == "":
-                            break  # EOF, process exited
-                    out_q.put(chunk)
+                    try:
+                        chunk = os.read(master_fd, 1024)
+                    except OSError:
+                        break  # master closed, e.g. shell exited
+                    if not chunk:
+                        break
+                    out_q.put(chunk.decode(errors="replace"))
 
             t = threading.Thread(target=reader, daemon=True)
             t.start()
-
             self.pserial.clear()
-            self.pserial.set_cursor(0, 0)
 
             while terminal.poll() is None:
                 key = self.pserial.poll_key()
@@ -91,17 +94,14 @@ class Pybiko:
                     print(f"key {code:#x} {'down' if down else 'up'}")
                     if down:
                         try:
-                            ch = code.to_bytes(1, byteorder="big", signed=False).decode("utf-8")
+                            ch = code.to_bytes(1, byteorder="big", signed=False).decode(
+                                "utf-8"
+                            )
                             if "\b" <= ch <= "~":
-                                terminal.stdin.write(ch)
-                                terminal.stdin.flush()
-
-                                # echo back
-                                self.pserial.write_text(ch)
+                                os.write(master_fd, ch.encode())
                         except UnicodeError:
                             pass
 
-                # drain whatever output has accumulated, non-blocking
                 out = []
                 try:
                     while True:
@@ -110,6 +110,8 @@ class Pybiko:
                     pass
                 if out:
                     self.pserial.write_text("".join(out))
+
+            os.close(master_fd)
 
         except KeyboardInterrupt:
             pass
