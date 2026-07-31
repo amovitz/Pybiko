@@ -73,7 +73,9 @@ class Pybiko:
                 while True:
                     chunk = terminal.stdout.read(1)
                     if chunk == "":
-                        break  # EOF, process exited
+                        chunk = terminal.stderr.read(1)
+                        if chunk == "":
+                            break  # EOF, process exited
                     out_q.put(chunk)
 
             t = threading.Thread(target=reader, daemon=True)
@@ -81,7 +83,6 @@ class Pybiko:
 
             self.pserial.clear()
             self.pserial.set_cursor(0, 0)
-            self.pserial.write_text("$")
 
             while terminal.poll() is None:
                 key = self.pserial.poll_key()

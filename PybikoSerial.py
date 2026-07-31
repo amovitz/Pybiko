@@ -99,7 +99,7 @@ class PybikoSerial:
             return None
         return cmd_type, payload
 
-    def wait_for_response(self, command: CommandType = CommandType.EVT_ACK, timeout: float = 0.5):
+    def wait_for_response(self, command: CommandType = CommandType.EVT_ACK, timeout: float = 0.25):
         START = time()
         while time() < START + timeout:
             frame = self.read_frame()
@@ -122,7 +122,7 @@ class PybikoSerial:
         return self.wait_for_response()
 
     def write_text(self, text: str, wait_for_ack: bool = True):
-        chunk_size = 6
+        chunk_size = 5
         chunks = 0
         good_chunks = 0
         for c in [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]:
@@ -131,7 +131,7 @@ class PybikoSerial:
                 chunks += 1
                 good_chunks += 1
                 continue
-            for _ in range(3):
+            for _ in range(5):
                 self.send_command(CommandType.CMD_WRITE_TEXT, c.encode("ascii"))
                 chunks += 1
                 if self.wait_for_response():
