@@ -27,43 +27,40 @@ def set_winsize(fd, rows, cols):
 
 class Pybiko:
     def __init__(self):
-        try:
-            # Compile the Cybiko application
+        # Compile the Cybiko application
+        sleep(1)
+
+        # Connect to the Reset IO
+        self.PIO = PybikoIO()
+        self.PIO.reset()
+
+        print(USB_PATH, "-b", TUI_PATH)
+        # Load an application
+        result = subprocess.run(
+            [
+                USB_PATH,
+                "-b",
+                TUI_PATH,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        print(result.stdout)
+
+        # Connect to serial
+        self.pserial = PybikoSerial()
+        retries = 10
+        while not self.pserial.ping():
+            retries -= 1
+            if retries <= 0:
+                raise IOError("Cannot connect to Cybiko")
             sleep(1)
+        print("Cybiko connected!")
 
-            # Connect to the Reset IO
-            self.PIO = PybikoIO()
-            self.PIO.reset()
-
-            print(USB_PATH, "-b", TUI_PATH)
-            # Load an application
-            result = subprocess.run(
-                [
-                    USB_PATH,
-                    "-b",
-                    TUI_PATH,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            print(result.stdout)
-
-            # Connect to serial
-            self.pserial = PybikoSerial()
-            retries = 10
-            while not self.pserial.ping():
-                retries -= 1
-                if retries <= 0:
-                    raise IOError("Cannot connect to Cybiko")
-                sleep(1)
-            print("Cybiko connected!")
-
-            self.pserial.clear()
-            self.pserial.set_cursor(5, 2)
-            self.pserial.write_text("Hello Cybiko! Love, Pi")
-        except Exception as e:
-            print(e)
+        self.pserial.clear()
+        self.pserial.set_cursor(5, 2)
+        self.pserial.write_text("Hello Cybiko! Love, Pi")
 
     def loop(self):
         try:
@@ -137,7 +134,5 @@ if __name__ == "__main__":
         pyb.loop()
     except KeyboardInterrupt:
         pass
-    except Exception as e:
-        print("Err:", e)
     finally:
         print("Exiting...")
