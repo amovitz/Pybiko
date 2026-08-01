@@ -131,12 +131,12 @@ class PybikoSerial:
         good_chunks = 0
         for c in [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]:
             if not wait_for_ack:
-                self.send_command(CommandType.CMD_WRITE_TEXT, c.encode("ascii"))
+                self.send_command(CommandType.CMD_WRITE_TEXT, c.encode("ascii", 'ignore'))
                 chunks += 1
                 good_chunks += 1
                 continue
             for _ in range(5):
-                self.send_command(CommandType.CMD_WRITE_TEXT, c.encode("ascii"))
+                self.send_command(CommandType.CMD_WRITE_TEXT, c.encode("ascii", 'ignore'))
                 chunks += 1
                 if self.wait_for_response():
                     good_chunks += 1
