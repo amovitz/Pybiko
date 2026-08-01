@@ -64,7 +64,9 @@ class PybikoSerial:
         frame = bytes([command, len(data)]) + data + bytes([checksum])
         self.serial.write(bytes([FRAME_SYNC]))
         self.serial.write(frame)
-        print('>', hex(command), hex(len(data)), data.hex(), hex(checksum))
+
+        # Debug
+        # print('>', hex(command), hex(len(data)), data.hex(), hex(checksum))
 
 
     def read_frame(self) -> Optional[Tuple[int, bytes]]:
@@ -79,7 +81,9 @@ class PybikoSerial:
         if len(header) < 2:
             return None  # timed out waiting for a frame to start
         cmd_type, length = header[0], header[1]
-        print('<', hex(cmd_type), hex(length), end=' ')
+
+        # Debug
+        # print('<', hex(cmd_type), hex(length), end=' ')
 
         payload = self.serial.read(length)
         print(payload.hex(), end=' ')
