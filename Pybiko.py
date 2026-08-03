@@ -2,10 +2,10 @@
 
 try:
     from .PybikoIO import PybikoIO
-    from .PybikoSerial import PybikoSerial
+    from .PybikoSerial import PybikoSerial, SpecialKeys
 except ImportError:
     from PybikoIO import PybikoIO
-    from PybikoSerial import PybikoSerial
+    from PybikoSerial import PybikoSerial, SpecialKeys
 
 from time import sleep
 import subprocess
@@ -16,6 +16,7 @@ import pty
 import fcntl
 import termios
 import struct
+import signal
 
 SRC_DIR = "/home/pi/src/"
 USB_PATH = SRC_DIR + "CybikoStuff/tools/build/usbcon"
@@ -79,6 +80,7 @@ class Pybiko:
                 stderr=slave_fd,
                 preexec_fn=os.setsid,  # new session, slave becomes its controlling tty
                 env=env,
+                bufsize=1,
             )
             os.close(slave_fd)  # parent doesn't need this end anymore
 
@@ -98,25 +100,47 @@ class Pybiko:
             t.start()
             self.pserial.clear()
 
+            ctrl_held = False
+
             while terminal.poll() is None:
                 key = self.pserial.poll_key()
                 if key:
                     code, down = key
-                    print(f"key {code:#x} {'down' if down else 'up'}")
+                    #print(f"key {code:#x} {'down' if down else 'up'}")
+                    if code == SpecialKeys.KEY_HELP:
+                        ctrl_held = True if down else False
+                        print("ctrl_held", ctrl_held)
+                    elif code == SpecialKeys.KEY_ESCAPE:
+                        os.write(master_fd, bytes([0x0E]))
+                        print("escape")
+                    elif code == SpecialKeys.KEY_UP:
+                        os.write(master_fd, bytes([0x1b, 0x5b, 0x41]))
+                    elif code == SpecialKeys.KEY_RIGHT:
+                        os.write(master_fd, bytes([0x1b, 0x5b, 0x44]))
+                    elif code == SpecialKeys.KEY_DOWN:
+                        os.write(master_fd, bytes([0x1b, 0x5b, 0x42]))
+                    elif code == SpecialKeys.KEY_LEFT:
+                        os.write(master_fd, bytes([0x1b, 0x5b, 0x43]))
                     if down:
                         try:
                             ch = code.to_bytes(1, byteorder="big", signed=False).decode(
                                 "utf-8"
                             )
                             if "\b" <= ch <= "~":
-                                os.write(master_fd, ch.encode())
+                                if ctrl_held and ch == 'c':
+                                    terminal.send_signal(signal.SIGINT)
+                                    print("ctrl c")
+                                else:
+                                    os.write(master_fd, ch.encode())
                         except UnicodeError:
                             pass
 
                 out = []
                 try:
-                    while True:
+                    batch = 25
+                    while batch > 0:
                         out.append(out_q.get_nowait())
+                        batch -= 1
                 except queue.Empty:
                     pass
                 if out:

@@ -33,6 +33,24 @@ class CommandType(enum.IntEnum):
     EVT_DEBUG       = 0xDB  # Cybiko -> Pi, payload: 10x uint16 LE (low byte=rows0-7, high byte=rows8-15), one pair per column in scan order
 
 
+class SpecialKeys(enum.IntEnum):
+    KEY_F1          = 0x80
+    KEY_F2          = 0x81
+    KEY_F3          = 0x82
+    KEY_F4          = 0x83
+    KEY_F5          = 0x84
+    KEY_F6          = 0x85
+    KEY_F7          = 0x86
+    KEY_HELP        = 0x87
+    KEY_SELECT      = 0x88
+    KEY_MENU        = 0x89
+    KEY_INSERT      = 0x8A
+    KEY_UP          = 0x8B
+    KEY_RIGHT       = 0x8C
+    KEY_DOWN        = 0x8D
+    KEY_LEFT        = 0x8E
+    KEY_ESCAPE      = 0x8F
+
 FRAME_SYNC = 0xAA
 
 class ChecksumError(Exception):
