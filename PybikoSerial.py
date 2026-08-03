@@ -86,12 +86,12 @@ class PybikoSerial:
         # print('<', hex(cmd_type), hex(length), end=' ')
 
         payload = self.serial.read(length)
-        print(payload.hex(), end=' ')
+        #print(payload.hex(), end=' ')
         if len(payload) < length:
             return None  # timed out mid-frame
 
         checksum_byte = self.serial.read(1)
-        print(hex(checksum_byte[0]))
+        #print(hex(checksum_byte[0]))
         if len(checksum_byte) < 1:
             return None
 
